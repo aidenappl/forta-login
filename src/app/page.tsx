@@ -3,12 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
-import {
-  reqLoginLocal,
-  reqOAuthComplete,
-  reqRefreshToken,
-} from "@/services/auth.service";
-import { AuthResponseData } from "@/types";
+import { reqLoginLocal, reqOAuthComplete } from "@/services/auth.service";
 import { useAuthStatus, useAppDispatch } from "@/store/hooks";
 import { setCredentials } from "@/store/slices/authSlice";
 
@@ -57,20 +52,9 @@ function LoginForm() {
         setOauthInProgress(true);
         setStatusMessage("Authorizing application…");
 
-        const refreshRes = await reqRefreshToken();
-        if (!refreshRes.success) {
-          setOauthInProgress(false);
-          setStatusMessage(null);
-          setError(
-            "Your session has expired. Please sign in again to continue.",
-          );
-          return;
-        }
-
-        const oauthRes = await reqOAuthComplete(
-          { oauth_request_token: oauthRequestToken! },
-          refreshRes.data.token,
-        );
+        const oauthRes = await reqOAuthComplete({
+          oauth_request_token: oauthRequestToken!,
+        });
 
         if (!oauthRes.success) {
           setOauthInProgress(false);
@@ -95,12 +79,11 @@ function LoginForm() {
     }
   }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri]);
 
-  const completeOAuth = async (data: AuthResponseData) => {
+  const completeOAuth = async () => {
     setStatusMessage("Completing authorization…");
-    const res = await reqOAuthComplete(
-      { oauth_request_token: oauthRequestToken! },
-      data.authorization.access_token,
-    );
+    const res = await reqOAuthComplete({
+      oauth_request_token: oauthRequestToken!,
+    });
 
     if (!res.success) {
       setStatusMessage(null);
@@ -139,7 +122,7 @@ function LoginForm() {
     if (isOAuthFlow) {
       setLoading(false);
       setOauthInProgress(true);
-      await completeOAuth(res.data);
+      await completeOAuth();
       setOauthInProgress(false);
     } else {
       setStatusMessage("Redirecting…");
