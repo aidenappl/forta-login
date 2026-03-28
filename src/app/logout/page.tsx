@@ -10,13 +10,13 @@ export default function Logout() {
       path: "/",
       expires: 365,
     });
+    window.location.href = "/";
   }, []);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-8">
       <div className="w-full max-w-sm text-center">
-        <h1 className="text-lg font-semibold mb-4">Signed out</h1>
-        <p className="text-sm text-gray-600">You have been logged out.</p>
+        <p className="text-sm text-gray-600">Signing out…</p>
       </div>
     </main>
   );

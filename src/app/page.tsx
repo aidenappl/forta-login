@@ -9,6 +9,7 @@ import {
   reqRefreshToken,
 } from "@/services/auth.service";
 import { AuthResponseData } from "@/types";
+import { useAuthStatus } from "@/store/hooks";
 
 const setLoggedInCookie = () => {
   Cookies.set("logged_in", "1", {
@@ -18,50 +19,66 @@ const setLoggedInCookie = () => {
   });
 };
 
+function FullScreenLoading() {
+  return (
+    <main className="min-h-screen flex items-center justify-center">
+      <p className="text-sm text-gray-600">Loading…</p>
+    </main>
+  );
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const oauthRequestToken = searchParams.get("oauth_request_token");
+  const redirectUri = searchParams.get("redirect_uri");
   const isOAuthFlow = !!oauthRequestToken;
+  const { isLoggedIn, isLoading: authLoading } = useAuthStatus();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(
-    isOAuthFlow && Cookies.get("logged_in") === "1",
-  );
+  const [oauthInProgress, setOauthInProgress] = useState(false);
 
-  // Auto-complete OAuth if already logged in
+  // Handle redirect for logged-in users
   useEffect(() => {
-    if (!checkingSession) return;
+    if (authLoading || !isLoggedIn) return;
 
-    const tryAutoOAuth = async () => {
-      const refreshRes = await reqRefreshToken();
-      if (!refreshRes.success) {
-        setCheckingSession(false);
-        return;
-      }
+    // User is logged in - handle redirect
+    if (isOAuthFlow) {
+      // Complete OAuth flow
+      const tryAutoOAuth = async () => {
+        setOauthInProgress(true);
+        const refreshRes = await reqRefreshToken();
+        if (!refreshRes.success) {
+          setOauthInProgress(false);
+          return;
+        }
 
-      const oauthRes = await reqOAuthComplete(
-        { oauth_request_token: oauthRequestToken! },
-        refreshRes.data.token,
-      );
-
-      if (!oauthRes.success) {
-        setCheckingSession(false);
-        setError(
-          oauthRes.status === 400
-            ? "Authorization request expired or invalid. Please return to the application and try again."
-            : oauthRes.error_message,
+        const oauthRes = await reqOAuthComplete(
+          { oauth_request_token: oauthRequestToken! },
+          refreshRes.data.token,
         );
-        return;
-      }
 
-      window.location.href = oauthRes.data.redirect_url;
-    };
+        if (!oauthRes.success) {
+          setOauthInProgress(false);
+          setError(
+            oauthRes.status === 400
+              ? "Authorization request expired or invalid. Please return to the application and try again."
+              : oauthRes.error_message,
+          );
+          return;
+        }
 
-    tryAutoOAuth();
-  }, [checkingSession, oauthRequestToken]);
+        window.location.href = oauthRes.data.redirect_url;
+      };
+
+      tryAutoOAuth();
+    } else {
+      // Non-OAuth: redirect to redirect_uri or default
+      window.location.href = redirectUri || "https://forta.appleby.cloud";
+    }
+  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri]);
 
   const completeOAuth = async (data: AuthResponseData) => {
     const res = await reqOAuthComplete(
@@ -100,12 +117,12 @@ function LoginForm() {
       await completeOAuth(res.data);
       setLoading(false);
     } else {
-      window.location.href = "https://forta.appleby.cloud";
+      window.location.href = redirectUri || "https://forta.appleby.cloud";
     }
   };
 
-  if (checkingSession) {
-    return <p className="text-sm text-gray-600">Checking session…</p>;
+  if (authLoading || oauthInProgress || (isLoggedIn && !error)) {
+    return <FullScreenLoading />;
   }
 
   return (
