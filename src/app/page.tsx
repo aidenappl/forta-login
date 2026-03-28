@@ -9,7 +9,8 @@ import {
   reqRefreshToken,
 } from "@/services/auth.service";
 import { AuthResponseData } from "@/types";
-import { useAuthStatus } from "@/store/hooks";
+import { useAuthStatus, useAppDispatch } from "@/store/hooks";
+import { setCredentials } from "@/store/slices/authSlice";
 
 const setLoggedInCookie = () => {
   Cookies.set("logged_in", "1", {
@@ -33,6 +34,7 @@ function LoginForm() {
   const redirectUri = searchParams.get("redirect_uri");
   const isOAuthFlow = !!oauthRequestToken;
   const { isLoggedIn, isLoading: authLoading } = useAuthStatus();
+  const dispatch = useAppDispatch();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -111,7 +113,9 @@ function LoginForm() {
       return;
     }
 
+    // Update cookie and Redux state
     setLoggedInCookie();
+    dispatch(setCredentials({ user: res.data.user }));
 
     if (isOAuthFlow) {
       await completeOAuth(res.data);
