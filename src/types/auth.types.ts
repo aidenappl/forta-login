@@ -56,3 +56,7 @@ export type IssueCodeResponse = {
 export type OAuthCompleteResponse = {
     redirect_url: string;
 };
+
+export type RefreshTokenResponse = {
+    token: string;
+};

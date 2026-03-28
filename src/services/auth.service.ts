@@ -7,6 +7,7 @@ import {
     LoginLocalRequest,
     OAuthCompleteRequest,
     OAuthCompleteResponse,
+    RefreshTokenResponse,
     RegisterLocalRequest,
     UserPublic,
 } from "@/types";
@@ -61,5 +62,11 @@ export const reqOAuthComplete = (body: OAuthCompleteRequest, accessToken: string
         headers: {
             Authorization: `Bearer ${accessToken}`,
         },
+    });
+
+export const reqRefreshToken = () =>
+    fetchApi<RefreshTokenResponse>({
+        method: "POST",
+        url: "/auth/refresh",
     });
 

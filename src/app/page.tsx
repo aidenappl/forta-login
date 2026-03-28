@@ -1,13 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
-import { reqLoginLocal, reqOAuthComplete } from "@/services/auth.service";
+import {
+  reqLoginLocal,
+  reqOAuthComplete,
+  reqRefreshToken,
+} from "@/services/auth.service";
 import { AuthResponseData } from "@/types";
 
 const setLoggedInCookie = () => {
-  Cookies.set("logged_in", "true", {
+  Cookies.set("logged_in", "1", {
     domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
     path: "/",
     expires: 365,
@@ -23,7 +27,41 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(
+    isOAuthFlow && Cookies.get("logged_in") === "1",
+  );
+
+  // Auto-complete OAuth if already logged in
+  useEffect(() => {
+    if (!checkingSession) return;
+
+    const tryAutoOAuth = async () => {
+      const refreshRes = await reqRefreshToken();
+      if (!refreshRes.success) {
+        setCheckingSession(false);
+        return;
+      }
+
+      const oauthRes = await reqOAuthComplete(
+        { oauth_request_token: oauthRequestToken! },
+        refreshRes.data.token,
+      );
+
+      if (!oauthRes.success) {
+        setCheckingSession(false);
+        setError(
+          oauthRes.status === 400
+            ? "Authorization request expired or invalid. Please return to the application and try again."
+            : oauthRes.error_message,
+        );
+        return;
+      }
+
+      window.location.href = oauthRes.data.redirect_url;
+    };
+
+    tryAutoOAuth();
+  }, [checkingSession, oauthRequestToken]);
 
   const completeOAuth = async (data: AuthResponseData) => {
     const res = await reqOAuthComplete(
@@ -66,8 +104,8 @@ function LoginForm() {
     }
   };
 
-  if (done) {
-    return <p className="text-sm text-green-700">Signed in successfully.</p>;
+  if (checkingSession) {
+    return <p className="text-sm text-gray-600">Checking session…</p>;
   }
 
   return (
