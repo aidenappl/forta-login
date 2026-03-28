@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+
+  # ── Forta ──────────────────────────────────────────────────────────────────
+
+  forta-login:
+    image: registry.appleby.cloud/forta-login:latest
+    container_name: forta-login
+    ports:
+      - "3050:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+    restart: unless-stopped
+    networks:
+      - forta-network
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl -f http://localhost:3000/api/health || exit 1"
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 45s
+    depends_on:
+      forta-api:
+        condition: service_healthy
+    labels:
+      - "com.docker.compose.project=forta"
+      - "traefik.enable=false"
+
+  forta-api:
+    image: registry.appleby.cloud/forta-api:latest
+    container_name: forta-api
+    ports:
+      - "8050:8001"
+    environment:
+      PORT: 8001
+      CORE_DB_DSN: ${FORTA_CORE_DB_DSN}
+      JWT_SIGNING_KEY: ${FORTA_JWT_SIGNING_KEY}
+      GOOGLE_CLIENT_ID: ${FORTA_GOOGLE_CLIENT_ID}
+    restart: unless-stopped
+    networks:
+      - forta-network
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://localhost:8001/healthcheck || exit 1"
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.docker.compose.project=forta"
+      - "traefik.enable=false"
+
+networks:
+  forta-network:
+    driver: bridge

@@ -15,6 +15,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Ensure public exists even if empty
+RUN mkdir -p public
+
 # Build the application with standalone output
 RUN npm run build
 
