@@ -6,6 +6,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build argument for cookie domain (NEXT_PUBLIC_ vars are inlined at build time)
+ARG NEXT_PUBLIC_COOKIE_DOMAIN=.appleby.cloud
+ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
+
 # Copy dependency files first (for better caching)
 COPY package*.json ./
 
