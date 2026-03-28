@@ -53,9 +53,13 @@ export const reqExchangeCode = (body: ExchangeCodeRequest) =>
         data: body,
     });
 
-export const reqOAuthComplete = (body: OAuthCompleteRequest) =>
+export const reqOAuthComplete = (body: OAuthCompleteRequest, accessToken: string) =>
     fetchApi<OAuthCompleteResponse>({
         method: "POST",
         url: "/oauth/complete",
         data: body,
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
     });
+

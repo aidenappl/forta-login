@@ -24,9 +24,6 @@ services:
       timeout: 15s
       retries: 3
       start_period: 45s
-    depends_on:
-      forta-api:
-        condition: service_healthy
     labels:
       - "com.docker.compose.project=forta"
       - "traefik.enable=false"
