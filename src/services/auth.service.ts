@@ -70,3 +70,9 @@ export const reqRefreshToken = () =>
         url: "/auth/refresh",
     });
 
+export const reqLogout = () =>
+    fetchApi<void>({
+        method: "POST",
+        url: "/auth/logout",
+    });
+
