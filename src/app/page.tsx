@@ -2,8 +2,17 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Cookies from "js-cookie";
 import { reqLoginLocal, reqOAuthComplete } from "@/services/auth.service";
 import { AuthResponseData } from "@/types";
+
+const setLoggedInCookie = () => {
+  Cookies.set("logged_in", "true", {
+    domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+    path: "/",
+    expires: 365,
+  });
+};
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -47,12 +56,13 @@ function LoginForm() {
       return;
     }
 
+    setLoggedInCookie();
+
     if (isOAuthFlow) {
       await completeOAuth(res.data);
       setLoading(false);
     } else {
-      setLoading(false);
-      setDone(true);
+      window.location.href = "https://forta.appleby.cloud";
     }
   };
 
