@@ -20,10 +20,13 @@ const setLoggedInCookie = () => {
   });
 };
 
-function FullScreenLoading() {
+function FullScreenLoading({ message = "Loading…" }: { message?: string }) {
   return (
     <main className="min-h-screen flex items-center justify-center">
-      <p className="text-sm text-gray-600">Loading…</p>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+        <p className="text-sm text-gray-600">{message}</p>
+      </div>
     </main>
   );
 }
@@ -40,6 +43,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [oauthInProgress, setOauthInProgress] = useState(false);
 
   // Handle redirect for logged-in users
@@ -51,9 +55,15 @@ function LoginForm() {
       // Complete OAuth flow
       const tryAutoOAuth = async () => {
         setOauthInProgress(true);
+        setStatusMessage("Authorizing application…");
+
         const refreshRes = await reqRefreshToken();
         if (!refreshRes.success) {
           setOauthInProgress(false);
+          setStatusMessage(null);
+          setError(
+            "Your session has expired. Please sign in again to continue.",
+          );
           return;
         }
 
@@ -64,14 +74,17 @@ function LoginForm() {
 
         if (!oauthRes.success) {
           setOauthInProgress(false);
+          setStatusMessage(null);
           setError(
             oauthRes.status === 400
               ? "Authorization request expired or invalid. Please return to the application and try again."
-              : oauthRes.error_message,
+              : oauthRes.error_message ||
+                  "Failed to complete authorization. Please try again.",
           );
           return;
         }
 
+        setStatusMessage("Redirecting…");
         window.location.href = oauthRes.data.redirect_url;
       };
 
@@ -83,20 +96,24 @@ function LoginForm() {
   }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri]);
 
   const completeOAuth = async (data: AuthResponseData) => {
+    setStatusMessage("Completing authorization…");
     const res = await reqOAuthComplete(
       { oauth_request_token: oauthRequestToken! },
       data.authorization.access_token,
     );
 
     if (!res.success) {
+      setStatusMessage(null);
       setError(
         res.status === 400
           ? "Authorization request expired or invalid. Please return to the application and try again."
-          : res.error_message,
+          : res.error_message ||
+              "Failed to complete authorization. Please try again.",
       );
       return;
     }
 
+    setStatusMessage("Redirecting…");
     window.location.href = res.data.redirect_url;
   };
 
@@ -108,7 +125,9 @@ function LoginForm() {
     const res = await reqLoginLocal({ email, password });
 
     if (!res.success) {
-      setError(res.error_message);
+      setError(
+        res.error_message || "Sign in failed. Please check your credentials.",
+      );
       setLoading(false);
       return;
     }
@@ -118,15 +137,22 @@ function LoginForm() {
     dispatch(setCredentials({ user: res.data.user }));
 
     if (isOAuthFlow) {
-      await completeOAuth(res.data);
       setLoading(false);
+      setOauthInProgress(true);
+      await completeOAuth(res.data);
+      setOauthInProgress(false);
     } else {
+      setStatusMessage("Redirecting…");
       window.location.href = redirectUri || "https://forta.appleby.cloud";
     }
   };
 
-  if (authLoading || oauthInProgress || (isLoggedIn && !error)) {
-    return <FullScreenLoading />;
+  if (authLoading) {
+    return <FullScreenLoading message="Checking session…" />;
+  }
+
+  if (oauthInProgress || (isLoggedIn && !error)) {
+    return <FullScreenLoading message={statusMessage || "Processing…"} />;
   }
 
   return (
