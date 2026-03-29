@@ -38,12 +38,33 @@ function applyTheme(app: Appearance) {
   document.documentElement.classList.toggle("dark", resolved === "dark");
 }
 
+const VALID: Appearance[] = ["light", "dark", "system"];
+
+function readCookie(): Appearance {
+  const c = Cookies.get(COOKIE_NAME) as Appearance | undefined;
+  return VALID.includes(c as Appearance) ? (c as Appearance) : "system";
+}
+
+function writeCookie(app: Appearance) {
+  Cookies.set(COOKIE_NAME, app, {
+    domain: COOKIE_DOMAIN,
+    path: "/",
+    expires: 365,
+  });
+}
+
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [appearance, setAppearanceState] = useState<Appearance>(() => {
     if (typeof window === "undefined") return "system";
-    const c = Cookies.get(COOKIE_NAME) as Appearance | undefined;
-    return c === "light" || c === "dark" || c === "system" ? c : "system";
+    return readCookie();
   });
+
+  // On first mount, ensure the cookie is always written so other .appleby.cloud
+  // apps can read it as the source of truth.
+  useEffect(() => {
+    writeCookie(appearance);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     applyTheme(appearance);
@@ -56,11 +77,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   const setAppearance = useCallback((app: Appearance) => {
     setAppearanceState(app);
-    Cookies.set(COOKIE_NAME, app, {
-      domain: COOKIE_DOMAIN,
-      path: "/",
-      expires: 365,
-    });
+    writeCookie(app);
     applyTheme(app);
   }, []);
 
