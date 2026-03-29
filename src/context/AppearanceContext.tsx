@@ -28,12 +28,14 @@ const AppearanceContext = createContext<AppearanceContextValue>({
 });
 
 function getSystemTheme(): "light" | "dark" {
+  if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
 }
 
 function applyTheme(app: Appearance) {
+  if (typeof window === "undefined") return;
   const resolved = app === "system" ? getSystemTheme() : app;
   document.documentElement.classList.toggle("dark", resolved === "dark");
 }
@@ -41,6 +43,7 @@ function applyTheme(app: Appearance) {
 const VALID: Appearance[] = ["light", "dark", "system"];
 
 function readCookie(): Appearance {
+  if (typeof window === "undefined") return "system";
   const c = Cookies.get(COOKIE_NAME) as Appearance | undefined;
   return VALID.includes(c as Appearance) ? (c as Appearance) : "system";
 }
