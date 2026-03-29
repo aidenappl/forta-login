@@ -5,14 +5,20 @@ import Cookies from "js-cookie";
 import { useAppDispatch } from "@/store/hooks";
 import { clearAuth } from "@/store/slices/authSlice";
 import { reqLogout } from "@/services/auth.service";
+import { FortaLogo } from "@/components/FortaLogo";
 
 export default function Logout() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
     const performLogout = async () => {
-      // Call logout API (invalidates refresh token on server)
-      await reqLogout();
+      try {
+        // Call logout API (invalidates refresh token on server)
+        await reqLogout();
+      } catch (e) {
+        console.error("Logout API error:", e);
+        // Continue with local logout even if API fails
+      }
 
       // Clear Redux state
       dispatch(clearAuth());
@@ -24,17 +30,23 @@ export default function Logout() {
         expires: 365,
       });
 
-      // Redirect to login
-      window.location.href = "/";
+      // Small delay to show the UI, then redirect
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 500);
     };
 
     performLogout();
   }, [dispatch]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="w-full max-w-sm text-center">
-        <p className="text-sm text-gray-600">Signing out…</p>
+    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gray-50">
+      <div className="flex flex-col items-center gap-4">
+        <FortaLogo className="w-12 h-12 shadow-md rounded-xl" />
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+          <p className="text-sm text-gray-600">Signing out…</p>
+        </div>
       </div>
     </main>
   );
