@@ -3,6 +3,8 @@ import "./globals.css";
 import "@fortawesome/fontawesome-svg-core/styles.css";
 import { config } from "@fortawesome/fontawesome-svg-core";
 import StoreProvider from "@/store/StoreProvider";
+import { AppearanceProvider } from "@/context/AppearanceContext";
+import { AppearanceToggle } from "@/components/AppearanceToggle";
 config.autoAddCss = false;
 
 export const metadata: Metadata = {
@@ -28,9 +30,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        {/* Runs before paint to apply saved theme and prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var c=document.cookie.match(/(?:^|;\\s*)forta-appearance=([^;]*)/);var s=c?c[1]:'system';var d=s==='dark'||(s!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
-        <StoreProvider>{children}</StoreProvider>
+        <AppearanceProvider>
+          <StoreProvider>{children}</StoreProvider>
+          <AppearanceToggle />
+        </AppearanceProvider>
       </body>
     </html>
   );
