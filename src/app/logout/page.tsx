@@ -11,6 +11,10 @@ export default function Logout() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    document.title = "Signing out… | Forta";
+  }, []);
+
+  useEffect(() => {
     const performLogout = async () => {
       try {
         // Call logout API (invalidates refresh token on server)

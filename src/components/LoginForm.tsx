@@ -53,6 +53,21 @@ export function LoginForm() {
 
   const isSubmitting = loading || googleLoading;
 
+  // Update document title based on current state
+  useEffect(() => {
+    if (authLoading) {
+      document.title = "Checking session… | Forta";
+    } else if (oauthInProgress) {
+      document.title = "Authorizing… | Forta";
+    } else if (loading || googleLoading) {
+      document.title = "Signing in… | Forta";
+    } else if (statusMessage?.includes("Redirecting")) {
+      document.title = "Redirecting… | Forta";
+    } else {
+      document.title = "Sign in | Forta";
+    }
+  }, [authLoading, loading, googleLoading, oauthInProgress, statusMessage]);
+
   const completeOAuth = useCallback(async () => {
     setStatusMessage("Completing authorization…");
     const res = await reqOAuthComplete({
