@@ -4,7 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
+  useSyncExternalStore,
   useCallback,
   ReactNode,
 } from "react";
@@ -53,20 +53,33 @@ function writeCookie(app: Appearance) {
   });
 }
 
-export function AppearanceProvider({ children }: { children: ReactNode }) {
-  const [appearance, setAppearanceState] = useState<Appearance>(() => {
-    if (typeof window === "undefined") return "system";
-    return readCookie();
-  });
+// useSyncExternalStore wiring — the cookie is the external store.
+// Listeners are notified when setAppearance is called (we manage the list manually
+// since cookies have no native change event).
+const listeners = new Set<() => void>();
 
-  // On first mount, ensure the cookie is always written so other .appleby.cloud
-  // apps can read it as the source of truth.
+function subscribeToAppearance(cb: () => void) {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+function notifyAppearanceListeners() {
+  listeners.forEach((cb) => cb());
+}
+
+export function AppearanceProvider({ children }: { children: ReactNode }) {
+  // useSyncExternalStore provides a server snapshot ("system") so React renders
+  // consistently on both server and client, then hydrates without mismatch.
+  // On the client it reads the real cookie value.
+  const appearance = useSyncExternalStore(
+    subscribeToAppearance,
+    readCookie, // client snapshot
+    () => "system" as Appearance, // server snapshot — must match initial server render
+  );
+
+  // Ensure the cookie is written on first load and apply theme / system listener.
   useEffect(() => {
     writeCookie(appearance);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     applyTheme(appearance);
     if (appearance !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -76,17 +89,13 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [appearance]);
 
   const setAppearance = useCallback((app: Appearance) => {
-    setAppearanceState(app);
     writeCookie(app);
     applyTheme(app);
+    notifyAppearanceListeners();
   }, []);
 
   const resolvedTheme: "light" | "dark" =
-    appearance === "system"
-      ? typeof window !== "undefined"
-        ? getSystemTheme()
-        : "light"
-      : appearance;
+    appearance === "system" ? getSystemTheme() : appearance;
 
   return (
     <AppearanceContext.Provider
