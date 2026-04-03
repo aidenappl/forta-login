@@ -6,10 +6,6 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Build argument for cookie domain (NEXT_PUBLIC_ vars are inlined at build time)
-ARG NEXT_PUBLIC_COOKIE_DOMAIN=.appleby.cloud
-ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
-
 # Copy dependency files first (for better caching)
 COPY package*.json ./
 
@@ -21,6 +17,10 @@ COPY . .
 
 # Ensure public exists even if empty
 RUN mkdir -p public
+
+# Build arg for API URL (baked into client bundle at build time)
+ARG NEXT_PUBLIC_COOKIE_DOMAIN
+ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
 
 # Build the application with standalone output
 RUN npm run build

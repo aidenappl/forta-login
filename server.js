@@ -14,11 +14,12 @@
  * Usage: npm run dev:ssl
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { createServer } = require("https");
-const { parse } = require("url");
 const next = require("next");
 const fs = require("fs");
 const path = require("path");
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 // Ensure this only runs in development
 if (process.env.NODE_ENV === "production") {
@@ -56,14 +57,35 @@ const httpsOptions = {
 	cert: fs.readFileSync(certPath),
 };
 
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
+// Load keyring secrets BEFORE initializing Next.js so NEXT_PUBLIC_* vars
+// are available when the client bundle is compiled.
+async function start() {
+	// Load .env.local since Node doesn't do it automatically (Next.js loads
+	// it later, but we need KEYRING_* vars before Next initialises).
+	const envLocalPath = path.join(__dirname, ".env.local");
+	if (fs.existsSync(envLocalPath)) {
+		const lines = fs.readFileSync(envLocalPath, "utf8").split("\n");
+		for (const line of lines) {
+			const match = line.match(/^\s*([\w.-]+)\s*=\s*['""]?(.*?)['""]?\s*$/);
+			if (match && !process.env[match[1]]) {
+				process.env[match[1]] = match[2];
+			}
+		}
+	}
 
-app.prepare().then(() => {
+	if (process.env.KEYRING_URL) {
+		const { Client } = require("@aidenappleby/keyring-js");
+		const client = new Client();
+		await client.injectEnv();
+	}
+
+	const app = next({ dev, hostname, port });
+	const handle = app.getRequestHandler();
+
+	await app.prepare();
 	createServer(httpsOptions, async (req, res) => {
 		try {
-			const parsedUrl = parse(req.url, true);
-			await handle(req, res, parsedUrl);
+			await handle(req, res);
 		} catch (err) {
 			console.error("Error occurred handling", req.url, err);
 			res.statusCode = 500;
@@ -72,4 +94,9 @@ app.prepare().then(() => {
 	}).listen(port, () => {
 		console.log(`> Ready on https://${hostname}:${port}`);
 	});
+}
+
+start().catch((err) => {
+	console.error("Failed to start server:", err);
+	process.exit(1);
 });
