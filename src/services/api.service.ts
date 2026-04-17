@@ -1,7 +1,7 @@
 import { ApiResponse } from "@/types";
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 
-const BASE_API_URL = "https://auth.appleby.cloud";
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://auth.appleby.cloud";
 
 const axiosApi = axios.create({
     baseURL: BASE_API_URL,

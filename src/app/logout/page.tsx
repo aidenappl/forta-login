@@ -32,15 +32,16 @@ export default function Logout() {
         domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
         path: "/",
         expires: 365,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
       });
 
       // Small delay to show the UI, then redirect
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 500);
+      window.location.href = "/";
     };
 
-    performLogout();
+    const timer = setTimeout(performLogout, 500);
+    return () => clearTimeout(timer);
   }, [dispatch]);
 
   return (

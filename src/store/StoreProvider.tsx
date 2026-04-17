@@ -34,6 +34,8 @@ const clearLoggedInCookie = () => {
     domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
     path: "/",
     expires: 365,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 };
 

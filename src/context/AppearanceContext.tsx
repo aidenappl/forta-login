@@ -13,7 +13,7 @@ import Cookies from "js-cookie";
 export type Appearance = "light" | "dark" | "system";
 
 const COOKIE_NAME = "forta-appearance";
-const COOKIE_DOMAIN = ".appleby.cloud";
+const COOKIE_DOMAIN = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || ".appleby.cloud";
 
 interface AppearanceContextValue {
   appearance: Appearance;

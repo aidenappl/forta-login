@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { FortaLogo } from "@/components/FortaLogo";
 
-const FORTA_HOME = "https://forta.appleby.cloud";
+const FORTA_HOME = process.env.NEXT_PUBLIC_FORTA_HOME || "https://forta.appleby.cloud";
 
 export default function OAuthLogout() {
   useEffect(() => {

@@ -19,11 +19,26 @@ import type { UserPublic } from "@/types/user.types";
 const INHIBIT_REDIRECTS = process.env.NEXT_PUBLIC_INHIBIT_REDIRECTS === "true";
 const DEFAULT_REDIRECT = "https://forta.appleby.cloud";
 
+function isTrustedRedirect(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    // Allow relative paths
+    if (parsed.origin === window.location.origin) return true;
+    // Allow appleby.cloud subdomains
+    if (parsed.hostname.endsWith('.appleby.cloud')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function setLoggedInCookie() {
   Cookies.set("logged_in", "1", {
     domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
     path: "/",
     expires: 365,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 }
 
@@ -87,7 +102,8 @@ export function LoginForm() {
     }
 
     setStatusMessage("Redirecting…");
-    window.location.href = res.data.redirect_url;
+    const oauthRedirect = isTrustedRedirect(res.data.redirect_url) ? res.data.redirect_url : DEFAULT_REDIRECT;
+    window.location.href = oauthRedirect;
   }, [oauthRequestToken]);
 
   const handleAuthSuccess = useCallback(
@@ -102,7 +118,7 @@ export function LoginForm() {
         await completeOAuth();
         setOauthInProgress(false);
       } else {
-        const destination = redirectUri || DEFAULT_REDIRECT;
+        const destination = (redirectUri && isTrustedRedirect(redirectUri)) ? redirectUri : DEFAULT_REDIRECT;
         if (INHIBIT_REDIRECTS) {
           setStatusMessage(`Would redirect to: ${destination}`);
           setLoading(false);
@@ -131,7 +147,12 @@ export function LoginForm() {
         return;
       }
 
-      await handleAuthSuccess(res.data.user);
+      try {
+        await handleAuthSuccess(res.data.user);
+      } catch {
+        setError("An unexpected error occurred.");
+        setGoogleLoading(false);
+      }
     },
     [handleAuthSuccess],
   );
@@ -161,12 +182,18 @@ export function LoginForm() {
         }
 
         setStatusMessage("Redirecting…");
-        window.location.href = oauthRes.data.redirect_url;
+        const autoOAuthRedirect = isTrustedRedirect(oauthRes.data.redirect_url) ? oauthRes.data.redirect_url : DEFAULT_REDIRECT;
+        window.location.href = autoOAuthRedirect;
       };
 
-      tryAutoOAuth();
+      tryAutoOAuth().catch(() => {
+        setOauthInProgress(false);
+        setStatusMessage(null);
+        setError("An unexpected error occurred.");
+      });
     } else {
-      window.location.href = redirectUri || DEFAULT_REDIRECT;
+      const destination = (redirectUri && isTrustedRedirect(redirectUri)) ? redirectUri : DEFAULT_REDIRECT;
+      window.location.href = destination;
     }
   }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri]);
 
@@ -185,7 +212,12 @@ export function LoginForm() {
       return;
     }
 
-    await handleAuthSuccess(res.data.user);
+    try {
+      await handleAuthSuccess(res.data.user);
+    } catch {
+      setError("An unexpected error occurred.");
+      setLoading(false);
+    }
   };
 
   if (authLoading) {
@@ -343,6 +375,7 @@ function PasswordField({
         className="border border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent transition-shadow"
         autoComplete="current-password"
         required
+        minLength={8}
       />
     </div>
   );
