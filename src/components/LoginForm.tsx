@@ -33,7 +33,7 @@ function isTrustedRedirect(url: string): boolean {
 }
 
 function setLoggedInCookie() {
-  Cookies.set("logged_in", "1", {
+  Cookies.set("forta-logged-in", "1", {
     domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
     path: "/",
     expires: 365,

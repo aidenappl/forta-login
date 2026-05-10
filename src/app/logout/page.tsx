@@ -28,7 +28,7 @@ export default function Logout() {
       dispatch(clearAuth());
 
       // Clear cookie
-      Cookies.set("logged_in", "0", {
+      Cookies.set("forta-logged-in", "0", {
         domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
         path: "/",
         expires: 365,
