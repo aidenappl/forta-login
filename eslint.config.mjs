@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Custom CommonJS dev HTTPS server (dev:ssl) — not part of the app source.
+    "server.js",
   ]),
 ]);
 

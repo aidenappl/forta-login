@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FortaLogo } from "@/components/FortaLogo";
 
 export default function UnauthorizedPage() {
@@ -44,12 +45,12 @@ export default function UnauthorizedPage() {
         >
           Go to Forta Dashboard
         </a>
-        <a
+        <Link
           href="/"
           className="w-full inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-colors mt-2"
         >
           Sign in with a different account
-        </a>
+        </Link>
 
         <p className="text-xs text-gray-400 dark:text-neutral-500 mt-6">
           If you believe this is a mistake, contact your administrator.
