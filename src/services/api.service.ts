@@ -1,5 +1,6 @@
 import { ApiResponse } from "@/types";
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import { attachMonitor } from "./monitor.service";
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://auth.appleby.cloud";
 
@@ -12,6 +13,8 @@ const axiosApi = axios.create({
     withCredentials: true,
     timeout: 10000,
 });
+
+attachMonitor(axiosApi);
 
 export const fetchApi = async <T>(
     config: AxiosRequestConfig,
