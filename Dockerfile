@@ -18,9 +18,25 @@ COPY . .
 # Ensure public exists even if empty
 RUN mkdir -p public
 
-# Build arg for API URL (baked into client bundle at build time)
+# Build args baked into the client bundle at build time. CI passes every
+# Keyring secret as a build arg; only the ones declared here reach the build.
+# An empty value falls back to the default in code.
 ARG NEXT_PUBLIC_COOKIE_DOMAIN
 ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
+
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Public OAuth client id (not a secret). Empty disables Google sign-in.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
+ARG NEXT_PUBLIC_FORTA_HOME
+ENV NEXT_PUBLIC_FORTA_HOME=$NEXT_PUBLIC_FORTA_HOME
+
+# The release on every Monitor event: the short commit SHA from CI, "dev" locally.
+ARG NEXT_PUBLIC_APP_VERSION=dev
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
 
 # Build the application with standalone output
 RUN npm run build
