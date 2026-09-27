@@ -6,6 +6,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { clearAuth } from "@/store/slices/authSlice";
 import { reqLogout } from "@/services/auth.service";
 import { FortaLogo } from "@/components/FortaLogo";
+import { monitor, reportCaught } from "@/services/monitor.service";
 
 export default function Logout() {
   const dispatch = useAppDispatch();
@@ -17,15 +18,30 @@ export default function Logout() {
   useEffect(() => {
     const performLogout = async () => {
       try {
-        // Call logout API (invalidates refresh token on server)
-        await reqLogout();
+        // Call logout API (invalidates refresh token on server). fetchApi
+        // never throws — a failure comes back as !res.success. Either way
+        // the local sign-out below goes ahead.
+        const res = await reqLogout();
+        if (!res.success) {
+          monitor?.warn("auth.logout.failed", {
+            requestId: res.request_id,
+            data: {
+              status_code: res.status,
+              error: res.error,
+              error_code: res.error_code,
+              request_id: res.request_id,
+            },
+          });
+        }
       } catch (e) {
         console.error("Logout API error:", e);
+        reportCaught("logout.request", e);
         // Continue with local logout even if API fails
       }
 
       // Clear Redux state
       dispatch(clearAuth());
+      monitor?.clearUser();
 
       // Clear cookie
       Cookies.set("forta-logged-in", "0", {

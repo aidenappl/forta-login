@@ -11,6 +11,7 @@ import {
 } from "./slices/authSlice";
 import { useEffect } from "react";
 import { reqGetSelf } from "../services/auth.service";
+import { monitor, sessionFailureLevel } from "../services/monitor.service";
 
 interface StoreProviderProps {
   children: React.ReactNode;
@@ -53,9 +54,23 @@ const StoreProvider = ({ children }: StoreProviderProps) => {
       if (res.success) {
         storeInstance.dispatch(setIsLogged(true));
         storeInstance.dispatch(setUser(res.data));
+        monitor?.setUser(String(res.data.id));
       } else {
+        // The browser held the logged-in marker but the session is gone. A
+        // 401/403 (after a failed refresh) is an ended session — expected, so
+        // info. Other 4xx warn; 5xx or no response errors.
+        monitor?.emit("session.bootstrap.failed", sessionFailureLevel(res.status), {
+          requestId: res.request_id,
+          data: {
+            status_code: res.status,
+            error: res.error,
+            error_code: res.error_code,
+            error_message: res.error_message,
+          },
+        });
         // Token invalid/expired - clear auth state and cookie
         storeInstance.dispatch(clearAuth());
+        monitor?.clearUser();
         clearLoggedInCookie();
       }
       storeInstance.dispatch(setIsLoading(false));

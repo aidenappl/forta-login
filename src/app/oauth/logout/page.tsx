@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { FortaLogo } from "@/components/FortaLogo";
+import { hostOf, monitor } from "@/services/monitor.service";
 
 const FORTA_HOME = process.env.NEXT_PUBLIC_FORTA_HOME || "https://forta.appleby.cloud";
 
@@ -11,7 +12,10 @@ export default function OAuthLogout() {
   }, []);
 
   useEffect(() => {
-    // TODO: log the OAuth logout action
+    // A relying party signed its user out and sent them here. The Forta
+    // session is deliberately left alone; only the destination host is
+    // reported.
+    monitor?.info("auth.oauth_logout", { data: { destination_host: hostOf(FORTA_HOME) } });
 
     // Redirect to Forta home without touching the Forta session
     const timer = setTimeout(() => {
