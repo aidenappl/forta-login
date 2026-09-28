@@ -27,9 +27,13 @@ ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Public OAuth client id (not a secret). Empty disables Google sign-in.
-ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
-ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+# Public OAuth client id (not a secret). Empty disables Google sign-in unless
+# the container sets it at runtime (/api/config). The Keyring key is
+# NEXT_FORTA_PUBLIC_GOOGLE_CLIENT_ID: the plain NEXT_PUBLIC_GOOGLE_CLIENT_ID key
+# is shared with another app, so it is deliberately not read. It must equal
+# forta-api's GOOGLE_CLIENT_ID.
+ARG NEXT_FORTA_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_FORTA_PUBLIC_GOOGLE_CLIENT_ID
 
 ARG NEXT_PUBLIC_FORTA_HOME
 ENV NEXT_PUBLIC_FORTA_HOME=$NEXT_PUBLIC_FORTA_HOME
