@@ -178,7 +178,7 @@ export function LoginForm() {
     [handleAuthSuccess],
   );
 
-  const { promptGoogleSignIn } = useGoogleSignIn(handleGoogleSignIn);
+  const { buttonRef: googleButtonRef, ready: googleReady } = useGoogleSignIn(handleGoogleSignIn);
 
   // Auto-redirect logged-in users
   useEffect(() => {
@@ -282,15 +282,25 @@ export function LoginForm() {
 
       <Divider />
 
-      <button
-        type="button"
-        disabled={isSubmitting}
-        onClick={promptGoogleSignIn}
-        className="cursor-pointer w-full flex items-center justify-center gap-2.5 border border-gray-300 dark:border-neutral-700 rounded-lg py-2.5 text-sm font-medium dark:text-neutral-200 hover:bg-gray-50 dark:hover:bg-neutral-800 hover:border-gray-400 dark:hover:border-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 text-[#4285F4]" />
-        {googleLoading ? "Signing in…" : "Google"}
-      </button>
+      {/* Google's own button is rendered into googleButtonRef; it opens the
+          account chooser on every click. The placeholder shows until it
+          renders, if Google can't load, and while a sign-in completes. */}
+      <div className="relative w-full min-h-[44px]">
+        <div
+          ref={googleButtonRef}
+          aria-hidden={!googleReady || googleLoading}
+          className={`flex w-full justify-center ${googleReady && !isSubmitting ? "" : "invisible pointer-events-none"}`}
+        />
+        {(!googleReady || isSubmitting) && (
+          <div
+            aria-busy={googleLoading}
+            className="absolute inset-0 flex items-center justify-center gap-2.5 border border-gray-300 dark:border-neutral-700 rounded-lg text-sm font-medium dark:text-neutral-200 opacity-50"
+          >
+            <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 text-[#4285F4]" />
+            {googleLoading ? "Signing in…" : "Google"}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
