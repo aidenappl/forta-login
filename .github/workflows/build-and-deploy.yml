@@ -6,8 +6,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      # The short commit SHA, baked in as NEXT_PUBLIC_APP_VERSION: the
+      # `release` on every Monitor event.
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION_VALUE=$(git rev-parse --short HEAD)
+          echo "value=$VERSION_VALUE" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION_VALUE"
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: [resolve-version]
 
     steps:
       - name: Checkout code
@@ -49,7 +67,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ steps.keyring.outputs.build-args }}
+          # Every Keyring secret (NEXT_PUBLIC_COOKIE_DOMAIN, NEXT_PUBLIC_API_URL,
+          # NEXT_PUBLIC_GOOGLE_CLIENT_ID, NEXT_PUBLIC_FORTA_HOME, …) plus the
+          # resolved version. The Dockerfile declares which ones it uses.
+          build-args: |
+            ${{ steps.keyring.outputs.build-args }}
+            NEXT_PUBLIC_APP_VERSION=${{ needs.resolve-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

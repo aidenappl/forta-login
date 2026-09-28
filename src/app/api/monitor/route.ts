@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { MONITOR_SERVICE } from "@/services/monitor.service";
+import { scrubEvent } from "@/lib/monitor-scrub";
 
 /**
  * Same-origin relay for browser telemetry. Pages post here and this route
@@ -9,6 +10,10 @@ import { MONITOR_SERVICE } from "@/services/monitor.service";
  * under this app's service name, and only bounded batches. Monitor's status is
  * passed back, so the SDK's retry and bad-line isolation work as they would
  * against ingest directly.
+ *
+ * Every event is scrubbed first (see lib/monitor-scrub.ts): this app's URLs
+ * carry oauth_request_token and redirect_uri, so query strings are cut and
+ * credential-like keys redacted before anything reaches Monitor.
  */
 const MAX_BODY_BYTES = 512 * 1024;
 const MAX_EVENTS = 500;
@@ -56,7 +61,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
         if (typeof event !== "object" || event === null || Array.isArray(event)) return empty(400);
         // A page does not get to choose which service it speaks for.
-        out.push(JSON.stringify({ ...(event as Record<string, unknown>), service: MONITOR_SERVICE }));
+        out.push(JSON.stringify({ ...scrubEvent(event as Record<string, unknown>), service: MONITOR_SERVICE }));
     }
 
     try {

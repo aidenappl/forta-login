@@ -15,9 +15,26 @@ import { setCredentials } from "@/store/slices/authSlice";
 import { useGoogleSignIn } from "@/hooks/useGoogleSignIn";
 import { InlineLoading } from "@/components/InlineLoading";
 import type { UserPublic } from "@/types/user.types";
+import {
+  monitor,
+  reportCaught,
+  reportLoginFailed,
+  reportOAuthCompleteFailed,
+  reportUntrustedRedirect,
+} from "@/services/monitor.service";
 
 const INHIBIT_REDIRECTS = process.env.NEXT_PUBLIC_INHIBIT_REDIRECTS === "true";
 const DEFAULT_REDIRECT = "https://forta.appleby.cloud";
+
+/**
+ * `url` when it is trusted, else DEFAULT_REDIRECT — reporting the fallback
+ * (host only) so a misconfigured relying party shows up in Monitor.
+ */
+function trustedOrDefault(url: string, source: string): string {
+  if (isTrustedRedirect(url)) return url;
+  reportUntrustedRedirect(url, source);
+  return DEFAULT_REDIRECT;
+}
 
 function isTrustedRedirect(url: string): boolean {
   try {
@@ -90,6 +107,7 @@ export function LoginForm() {
     });
 
     if (!res.success) {
+      reportOAuthCompleteFailed(res, false);
       setStatusMessage(null);
       setError(getOAuthErrorMessage(res.status, res.error_message));
       return;
@@ -102,7 +120,7 @@ export function LoginForm() {
     }
 
     setStatusMessage("Redirecting…");
-    const oauthRedirect = isTrustedRedirect(res.data.redirect_url) ? res.data.redirect_url : DEFAULT_REDIRECT;
+    const oauthRedirect = trustedOrDefault(res.data.redirect_url, "oauth_complete");
     window.location.href = oauthRedirect;
   }, [oauthRequestToken]);
 
@@ -110,6 +128,7 @@ export function LoginForm() {
     async (user: UserPublic) => {
       setLoggedInCookie();
       dispatch(setCredentials({ user }));
+      monitor?.setUser(String(user.id));
 
       if (isOAuthFlow) {
         setLoading(false);
@@ -118,7 +137,7 @@ export function LoginForm() {
         await completeOAuth();
         setOauthInProgress(false);
       } else {
-        const destination = (redirectUri && isTrustedRedirect(redirectUri)) ? redirectUri : DEFAULT_REDIRECT;
+        const destination = redirectUri ? trustedOrDefault(redirectUri, "login") : DEFAULT_REDIRECT;
         if (INHIBIT_REDIRECTS) {
           setStatusMessage(`Would redirect to: ${destination}`);
           setLoading(false);
@@ -140,6 +159,7 @@ export function LoginForm() {
       const res = await reqLoginGoogle({ id_token: credential });
 
       if (!res.success) {
+        reportLoginFailed("google", res);
         setError(
           res.error_message || "Google sign in failed. Please try again.",
         );
@@ -149,7 +169,8 @@ export function LoginForm() {
 
       try {
         await handleAuthSuccess(res.data.user);
-      } catch {
+      } catch (err) {
+        reportCaught("login.google.complete", err);
         setError("An unexpected error occurred.");
         setGoogleLoading(false);
       }
@@ -173,6 +194,7 @@ export function LoginForm() {
         });
 
         if (!oauthRes.success) {
+          reportOAuthCompleteFailed(oauthRes, true);
           setOauthInProgress(false);
           setStatusMessage(null);
           setError(
@@ -182,17 +204,18 @@ export function LoginForm() {
         }
 
         setStatusMessage("Redirecting…");
-        const autoOAuthRedirect = isTrustedRedirect(oauthRes.data.redirect_url) ? oauthRes.data.redirect_url : DEFAULT_REDIRECT;
+        const autoOAuthRedirect = trustedOrDefault(oauthRes.data.redirect_url, "oauth_auto_complete");
         window.location.href = autoOAuthRedirect;
       };
 
-      tryAutoOAuth().catch(() => {
+      tryAutoOAuth().catch((err: unknown) => {
+        reportCaught("login.oauth_auto_complete", err);
         setOauthInProgress(false);
         setStatusMessage(null);
         setError("An unexpected error occurred.");
       });
     } else {
-      const destination = (redirectUri && isTrustedRedirect(redirectUri)) ? redirectUri : DEFAULT_REDIRECT;
+      const destination = redirectUri ? trustedOrDefault(redirectUri, "already_signed_in") : DEFAULT_REDIRECT;
       window.location.href = destination;
     }
   }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri]);
@@ -205,6 +228,7 @@ export function LoginForm() {
     const res = await reqLoginLocal({ email, password });
 
     if (!res.success) {
+      reportLoginFailed("local", res);
       setError(
         res.error_message || "Sign in failed. Please check your credentials.",
       );
@@ -214,7 +238,8 @@ export function LoginForm() {
 
     try {
       await handleAuthSuccess(res.data.user);
-    } catch {
+    } catch (err) {
+      reportCaught("login.local.complete", err);
       setError("An unexpected error occurred.");
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 export * from "./user.types";
 export * from "./auth.types";
+export * from "./request.types";
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
@@ -16,4 +17,6 @@ export type ApiError = {
     error: string;
     error_message: string;
     error_code: number;
+    /** The X-Request-ID of the failed call (echoed by the API, else the one sent). */
+    request_id?: string;
 };
