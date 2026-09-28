@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import "@/types/google.types";
-import { monitor, reportWarn, reportWarnOnce } from "@/services/monitor.service";
+import { monitor, reportWarnOnce } from "@/services/monitor.service";
 
 const GSI_SRC = "https://accounts.google.com/gsi/client";
 
@@ -30,61 +30,94 @@ export const resolveGoogleClientId = (): Promise<string | null> => {
     return clientIdPromise;
 };
 
+let scriptPromise: Promise<boolean> | null = null;
+
+/** Loads Google Identity Services once per page; resolves false if it fails. */
+const loadGsiScript = (): Promise<boolean> => {
+    if (window.google?.accounts?.id) return Promise.resolve(true);
+    scriptPromise ??= new Promise<boolean>((resolve) => {
+        const script = document.createElement("script");
+        script.src = GSI_SRC;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => {
+            // Blocked (ad/tracker blocker, CSP, offline) or Google unreachable.
+            monitor?.warn("login.google.script_failed", { data: { src: GSI_SRC } });
+            scriptPromise = null;
+            script.remove();
+            resolve(false);
+        };
+        document.body.appendChild(script);
+    });
+    return scriptPromise;
+};
+
+// initialize() may only run once per page: a second call aborts Google's
+// in-flight FedCM credential request ("signal is aborted without reason").
+let initialized = false;
+let latestCallback: GoogleSignInCallback | null = null;
+
+/**
+ * Google sign-in through Google's own rendered button. It opens the account
+ * chooser on every click, unlike One Tap's prompt(), which Chrome suppresses
+ * for a cooldown after a dismissal. Attach `buttonRef` to an empty element;
+ * `ready` turns true once the button is rendered into it.
+ */
 export function useGoogleSignIn(onSignIn: GoogleSignInCallback) {
-    const handleCredentialResponse = useCallback(
-        (response: { credential: string }) => {
-            onSignIn(response.credential);
-        },
-        [onSignIn],
-    );
+    const buttonRef = useRef<HTMLDivElement>(null);
+    const [ready, setReady] = useState(false);
+
+    // The newest handler without re-running the effect: onSignIn changes on
+    // most renders, and re-initializing would cancel a sign-in in progress.
+    useEffect(() => {
+        latestCallback = onSignIn;
+    }, [onSignIn]);
 
     useEffect(() => {
         let cancelled = false;
-        let script: HTMLScriptElement | null = null;
 
-        resolveGoogleClientId().then((clientId) => {
+        (async () => {
+            const clientId = await resolveGoogleClientId();
             if (cancelled) return;
             if (!clientId) {
                 // Neither the build nor the container has a Google client id,
-                // so the Google button can never work.
+                // so Google sign-in can never work.
                 reportWarnOnce("login.google.unconfigured");
                 return;
             }
+            if (!(await loadGsiScript()) || cancelled) return;
 
-            script = document.createElement("script");
-            script.src = GSI_SRC;
-            script.async = true;
-            script.defer = true;
-            script.onload = () => {
-                window.google?.accounts.id.initialize({
+            const gsi = window.google?.accounts.id;
+            const el = buttonRef.current;
+            if (!gsi || !el) return;
+
+            if (!initialized) {
+                gsi.initialize({
                     client_id: clientId,
-                    callback: handleCredentialResponse,
+                    callback: (response) => latestCallback?.(response.credential),
                 });
-            };
-            script.onerror = () => {
-                // Blocked (ad/tracker blocker, CSP, offline) or Google unreachable.
-                monitor?.warn("login.google.script_failed", { data: { src: GSI_SRC } });
-            };
-            document.body.appendChild(script);
-        });
+                initialized = true;
+            }
+
+            const dark = document.documentElement.classList.contains("dark");
+            gsi.renderButton(el, {
+                type: "standard",
+                theme: dark ? "filled_black" : "outline",
+                size: "large",
+                text: "continue_with",
+                shape: "rectangular",
+                logo_alignment: "center",
+                // GIS caps the width at 400px.
+                width: Math.min(Math.max(Math.round(el.clientWidth), 200), 400),
+            });
+            setReady(true);
+        })();
 
         return () => {
             cancelled = true;
-            if (script?.parentNode) script.parentNode.removeChild(script);
         };
-    }, [handleCredentialResponse]);
-
-    const promptGoogleSignIn = useCallback(() => {
-        if (!window.google) {
-            // The button was pressed but Google Identity Services never loaded
-            // (unconfigured, blocked, or still loading), so nothing happens.
-            reportWarn("login.google.prompt_unavailable", {
-                configured_at_build: Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
-            });
-            return;
-        }
-        window.google.accounts.id.prompt();
     }, []);
 
-    return { promptGoogleSignIn };
+    return { buttonRef, ready };
 }
