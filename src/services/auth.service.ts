@@ -65,3 +65,11 @@ export const reqLogout = () =>
         url: "/auth/logout",
     });
 
+
+/** Which application an oauth_request_token is for (display only). */
+export const reqOAuthRequestInfo = (oauthRequestToken: string) =>
+    fetchApi<{ name: string; is_first_party: boolean; icon_url: string | null }>({
+        method: "GET",
+        url: "/oauth/request-info",
+        params: { oauth_request_token: oauthRequestToken },
+    });

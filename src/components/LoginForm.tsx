@@ -6,6 +6,7 @@ import Cookies from "js-cookie";
 import {
   reqLoginLocal,
   reqOAuthComplete,
+  reqOAuthRequestInfo,
 } from "@/services/auth.service";
 import { useAuthStatus, useAppDispatch } from "@/store/hooks";
 import { setCredentials } from "@/store/slices/authSlice";
@@ -95,6 +96,20 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [oauthInProgress, setOauthInProgress] = useState(false);
+  // The requesting application, from forta-api's view of the SIGNED request
+  // token (never a URL parameter). null until known; the alert then stays generic.
+  const [oauthApp, setOauthApp] = useState<{ name: string; is_first_party: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!oauthRequestToken) return;
+    let cancelled = false;
+    reqOAuthRequestInfo(oauthRequestToken).then((res) => {
+      if (!cancelled && res.success) setOauthApp(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [oauthRequestToken]);
 
   const isSubmitting = loading;
 
@@ -245,7 +260,7 @@ export function LoginForm() {
         />
       )}
 
-      {isOAuthFlow && <OAuthAlert />}
+      {isOAuthFlow && <OAuthAlert app={oauthApp} />}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <EmailField value={email} onChange={setEmail} />
@@ -294,10 +309,25 @@ function DebugAlert({
   );
 }
 
-function OAuthAlert() {
+function OAuthAlert({ app }: { app: { name: string; is_first_party: boolean } | null }) {
+  // First-party apps are ours: no consent framing, just where you're going.
+  if (app?.is_first_party) {
+    return (
+      <div className="text-xs border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 rounded p-3">
+        Sign in to continue to <span className="font-semibold">{app.name}</span>.
+      </div>
+    );
+  }
   return (
     <div className="text-xs border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300 rounded p-3">
-      A third-party application is requesting access. Sign in to authorize.
+      {app ? (
+        <>
+          <span className="font-semibold">{app.name}</span> is a third-party application requesting access. Sign in to
+          authorize.
+        </>
+      ) : (
+        "An application is requesting access. Sign in to authorize."
+      )}
     </div>
   );
 }
