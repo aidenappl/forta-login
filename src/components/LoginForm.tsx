@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import {
@@ -113,6 +113,13 @@ export function LoginForm() {
 
   const isSubmitting = loading;
 
+  // ⚠️ /oauth/complete must run ONCE per page. A password sign-in sets the
+  // logged-in state, which also fires the auto-redirect effect below; without
+  // this guard both paths completed the flow, the browser followed two
+  // redirects, and the app rejected the second as state_expired
+  // ("Sign-in took too long").
+  const oauthStartedRef = useRef(false);
+
   // Update document title based on current state
   useEffect(() => {
     if (authLoading) {
@@ -129,12 +136,15 @@ export function LoginForm() {
   }, [authLoading, loading, oauthInProgress, statusMessage]);
 
   const completeOAuth = useCallback(async () => {
+    if (oauthStartedRef.current) return;
+    oauthStartedRef.current = true;
     setStatusMessage("Completing authorization…");
     const res = await reqOAuthComplete({
       oauth_request_token: oauthRequestToken!,
     });
 
     if (!res.success) {
+      oauthStartedRef.current = false;
       reportOAuthCompleteFailed(res, false);
       setStatusMessage(null);
       setError(getOAuthErrorMessage(res.status, res.error_message));
@@ -183,6 +193,8 @@ export function LoginForm() {
 
     if (isOAuthFlow) {
       const tryAutoOAuth = async () => {
+        if (oauthStartedRef.current) return;
+        oauthStartedRef.current = true;
         setOauthInProgress(true);
         setStatusMessage("Authorizing application…");
 
@@ -191,6 +203,7 @@ export function LoginForm() {
         });
 
         if (!oauthRes.success) {
+          oauthStartedRef.current = false;
           reportOAuthCompleteFailed(oauthRes, true);
           setOauthInProgress(false);
           setStatusMessage(null);
