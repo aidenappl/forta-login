@@ -77,3 +77,9 @@ from forta-api's `GET /oauth/request-info` (`reqOAuthRequestInfo`). First-party 
 "Sign in to continue to <name>"; others "<name> is a third-party application requesting access";
 until it loads (or if it fails) a generic line. Never take the app name from a URL parameter —
 only that endpoint, which reads the signed token.
+
+**`/oauth/complete` runs once per page** (`oauthStartedRef` in `LoginForm`). A password sign-in
+sets the logged-in state, which also fires the auto-complete effect; before the guard both paths
+completed the flow, the browser followed two redirects, and the app rejected the second as
+`state_expired` ("Sign-in took too long"). Keep the guard on every path that calls
+`reqOAuthComplete`.
