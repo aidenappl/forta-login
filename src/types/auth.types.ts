@@ -13,10 +13,6 @@ export type LoginLocalRequest = {
     password: string;
 };
 
-export type LoginGoogleRequest = {
-    id_token: string;
-};
-
 export type IssueCodeRequest = {
     client_id: string;
     redirect_uri: string;

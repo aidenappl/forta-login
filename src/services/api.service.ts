@@ -2,7 +2,7 @@ import { ApiResponse } from "@/types";
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 import { attachMonitor, monitor, newClientRequestId, sessionFailureLevel, stripQuery } from "./monitor.service";
 
-const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://auth.appleby.cloud";
+export const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://auth.appleby.cloud";
 
 const axiosApi = axios.create({
     baseURL: BASE_API_URL,
