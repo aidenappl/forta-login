@@ -69,3 +69,11 @@ refresh is cookie-based and its body has no `data.token`. A 401 from `/auth/logi
 returned as-is.
 
 Tests: `npm test` (Vitest, jsdom; `src/**/*.test.ts`).
+
+## OAuth request banner
+
+During an OAuth flow (`?oauth_request_token=…`) the form shows which application is asking,
+from forta-api's `GET /oauth/request-info` (`reqOAuthRequestInfo`). First-party platforms get
+"Sign in to continue to <name>"; others "<name> is a third-party application requesting access";
+until it loads (or if it fails) a generic line. Never take the app name from a URL parameter —
+only that endpoint, which reads the signed token.
