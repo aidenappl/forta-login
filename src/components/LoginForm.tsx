@@ -3,16 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGoogle } from "@fortawesome/free-brands-svg-icons";
 import {
   reqLoginLocal,
-  reqLoginGoogle,
   reqOAuthComplete,
 } from "@/services/auth.service";
 import { useAuthStatus, useAppDispatch } from "@/store/hooks";
 import { setCredentials } from "@/store/slices/authSlice";
-import { useGoogleSignIn } from "@/hooks/useGoogleSignIn";
+import { GoogleButton } from "@/components/GoogleButton";
 import { InlineLoading } from "@/components/InlineLoading";
 import type { UserPublic } from "@/types/user.types";
 import {
@@ -59,6 +56,17 @@ function setLoggedInCookie() {
   });
 }
 
+/** Messages for the google_error codes forta-api's Google callback returns. */
+const GOOGLE_ERRORS: Record<string, string> = {
+  cancelled: "Google sign-in was cancelled.",
+  expired: "Google sign-in took too long. Please try again.",
+  forbidden: "This account can't sign in. Contact an administrator.",
+  unverified_account:
+    "An account with this email exists but hasn't been verified. Sign in with your password first.",
+  unavailable: "Google sign-in is unavailable right now. Use your email and password.",
+  failed: "Google sign-in failed. Please try again.",
+};
+
 function getOAuthErrorMessage(status: number, fallback?: string): string {
   if (status === 400) {
     return "Authorization request expired or invalid. Please return to the application and try again.";
@@ -71,19 +79,24 @@ export function LoginForm() {
   const oauthRequestToken = searchParams.get("oauth_request_token");
   const redirectUri = searchParams.get("redirect_uri");
   const isOAuthFlow = !!oauthRequestToken;
+  // prompt=login (OIDC): the relying party asked for a fresh sign-in, so a
+  // signed-in visitor is NOT completed automatically.
+  const forceLogin = searchParams.get("prompt") === "login";
+  const googleError = searchParams.get("google_error");
 
   const { isLoggedIn, isLoading: authLoading } = useAuthStatus();
   const dispatch = useAppDispatch();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    googleError ? (GOOGLE_ERRORS[googleError] ?? GOOGLE_ERRORS.failed) : null,
+  );
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [oauthInProgress, setOauthInProgress] = useState(false);
 
-  const isSubmitting = loading || googleLoading;
+  const isSubmitting = loading;
 
   // Update document title based on current state
   useEffect(() => {
@@ -91,14 +104,14 @@ export function LoginForm() {
       document.title = "Checking session… | Forta";
     } else if (oauthInProgress) {
       document.title = "Authorizing… | Forta";
-    } else if (loading || googleLoading) {
+    } else if (loading) {
       document.title = "Signing in… | Forta";
     } else if (statusMessage?.includes("Redirecting")) {
       document.title = "Redirecting… | Forta";
     } else {
       document.title = "Sign in | Forta";
     }
-  }, [authLoading, loading, googleLoading, oauthInProgress, statusMessage]);
+  }, [authLoading, loading, oauthInProgress, statusMessage]);
 
   const completeOAuth = useCallback(async () => {
     setStatusMessage("Completing authorization…");
@@ -132,7 +145,6 @@ export function LoginForm() {
 
       if (isOAuthFlow) {
         setLoading(false);
-        setGoogleLoading(false);
         setOauthInProgress(true);
         await completeOAuth();
         setOauthInProgress(false);
@@ -141,7 +153,6 @@ export function LoginForm() {
         if (INHIBIT_REDIRECTS) {
           setStatusMessage(`Would redirect to: ${destination}`);
           setLoading(false);
-          setGoogleLoading(false);
           return;
         }
         setStatusMessage("Redirecting…");
@@ -151,38 +162,9 @@ export function LoginForm() {
     [dispatch, isOAuthFlow, redirectUri, completeOAuth],
   );
 
-  const handleGoogleSignIn = useCallback(
-    async (credential: string) => {
-      setError(null);
-      setGoogleLoading(true);
-
-      const res = await reqLoginGoogle({ id_token: credential });
-
-      if (!res.success) {
-        reportLoginFailed("google", res);
-        setError(
-          res.error_message || "Google sign in failed. Please try again.",
-        );
-        setGoogleLoading(false);
-        return;
-      }
-
-      try {
-        await handleAuthSuccess(res.data.user);
-      } catch (err) {
-        reportCaught("login.google.complete", err);
-        setError("An unexpected error occurred.");
-        setGoogleLoading(false);
-      }
-    },
-    [handleAuthSuccess],
-  );
-
-  const { buttonRef: googleButtonRef, ready: googleReady } = useGoogleSignIn(handleGoogleSignIn);
-
   // Auto-redirect logged-in users
   useEffect(() => {
-    if (INHIBIT_REDIRECTS || authLoading || !isLoggedIn) return;
+    if (INHIBIT_REDIRECTS || authLoading || !isLoggedIn || forceLogin) return;
 
     if (isOAuthFlow) {
       const tryAutoOAuth = async () => {
@@ -218,7 +200,7 @@ export function LoginForm() {
       const destination = redirectUri ? trustedOrDefault(redirectUri, "already_signed_in") : DEFAULT_REDIRECT;
       window.location.href = destination;
     }
-  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri]);
+  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri, forceLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,7 +231,7 @@ export function LoginForm() {
     return <InlineLoading message="Checking session…" />;
   }
 
-  if (!INHIBIT_REDIRECTS && (oauthInProgress || (isLoggedIn && !error))) {
+  if (!INHIBIT_REDIRECTS && (oauthInProgress || (isLoggedIn && !error && !forceLogin))) {
     return <InlineLoading message={statusMessage || "Processing…"} />;
   }
 
@@ -282,25 +264,7 @@ export function LoginForm() {
 
       <Divider />
 
-      {/* Google's own button is rendered into googleButtonRef; it opens the
-          account chooser on every click. The placeholder shows until it
-          renders, if Google can't load, and while a sign-in completes. */}
-      <div className="relative w-full min-h-[44px]">
-        <div
-          ref={googleButtonRef}
-          aria-hidden={!googleReady || googleLoading}
-          className={`flex w-full justify-center ${googleReady && !isSubmitting ? "" : "invisible pointer-events-none"}`}
-        />
-        {(!googleReady || isSubmitting) && (
-          <div
-            aria-busy={googleLoading}
-            className="absolute inset-0 flex items-center justify-center gap-2.5 border border-gray-300 dark:border-neutral-700 rounded-lg text-sm font-medium dark:text-neutral-200 opacity-50"
-          >
-            <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 text-[#4285F4]" />
-            {googleLoading ? "Signing in…" : "Google"}
-          </div>
-        )}
-      </div>
+      <GoogleButton disabled={isSubmitting} />
     </div>
   );
 }
@@ -421,7 +385,7 @@ function Divider() {
     <div className="flex items-center gap-3 my-4">
       <div className="flex-1 h-px bg-gray-200 dark:bg-neutral-700" />
       <span className="text-xs text-gray-400 dark:text-neutral-500 uppercase tracking-wide">
-        or continue with
+        or
       </span>
       <div className="flex-1 h-px bg-gray-200 dark:bg-neutral-700" />
     </div>

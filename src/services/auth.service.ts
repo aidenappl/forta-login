@@ -3,7 +3,6 @@ import {
     ExchangeCodeRequest,
     IssueCodeRequest,
     IssueCodeResponse,
-    LoginGoogleRequest,
     LoginLocalRequest,
     OAuthCompleteRequest,
     OAuthCompleteResponse,
@@ -24,13 +23,6 @@ export const reqLoginLocal = (body: LoginLocalRequest) =>
     fetchApi<AuthResponseData>({
         method: "POST",
         url: "/auth/login",
-        data: body,
-    });
-
-export const reqLoginGoogle = (body: LoginGoogleRequest) =>
-    fetchApi<AuthResponseData>({
-        method: "POST",
-        url: "/auth/google",
         data: body,
     });
 
