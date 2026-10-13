@@ -83,3 +83,13 @@ sets the logged-in state, which also fires the auto-complete effect; before the 
 completed the flow, the browser followed two redirects, and the app rejected the second as
 `state_expired` ("Sign-in took too long"). Keep the guard on every path that calls
 `reqOAuthComplete`.
+
+## CI runners
+
+Every GitHub Actions job runs on `[self-hosted, lattice-worker]` — a single-use runner started by
+`aidenappl/gh-runner-broker` on the CI host (`aplb-actions`, 10.15.10.78), with the toolchain and
+shared npm cache provisioned by `TeamTrailblaze/runner-setup`. Images build through the host's
+`lattice-builder` BuildKit (`builder: lattice-builder`), never `docker/setup-buildx-action`, which
+races other runners on the shared Docker daemon; its local layer cache replaces the gha cache. Jobs
+stuck in "Queued" mean the broker or the host is down — check `gh-runner-broker` in Monitor (zone
+`appleby`).
