@@ -246,7 +246,7 @@ export const hostOf = (url: string): string | undefined => {
 // the API's numeric error_code and the request id. Never the email, password,
 // Google id_token, oauth_request_token, code, state or a full redirect URL.
 
-export type LoginMethod = "local" | "google";
+export type LoginMethod = "local" | "google" | "register";
 
 /** A sign-in attempt the API refused or could not answer. */
 export const reportLoginFailed = (method: LoginMethod, res: ApiError): void => {
