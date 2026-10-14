@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Copy source code
 COPY . .
@@ -35,7 +35,7 @@ ARG NEXT_PUBLIC_APP_VERSION=dev
 ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
 
 # Build the application with standalone output
-RUN npm run build
+RUN --mount=type=cache,id=forta-login-next,target=/app/.next/cache npm run build
 
 # ---- Runtime Stage ----
 FROM node:20-alpine AS runner
