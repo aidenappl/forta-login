@@ -20,9 +20,6 @@ export default function Home() {
         </div>
 
         <div className="w-full bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
-          <p className="text-sm text-gray-500 dark:text-neutral-400 text-center mb-5">
-            Sign in to continue
-          </p>
           <Suspense>
             <LoginForm />
           </Suspense>
