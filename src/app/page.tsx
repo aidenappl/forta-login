@@ -15,14 +15,11 @@ export default function Home() {
           </span>
           <span className="h-4 w-px bg-gray-300 dark:bg-neutral-600" />
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            ApplebyEstate
+            Appleby Cloud
           </span>
         </div>
 
         <div className="w-full bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
-          <p className="text-sm text-gray-500 dark:text-neutral-400 text-center mb-5">
-            Sign in to continue
-          </p>
           <Suspense>
             <LoginForm />
           </Suspense>

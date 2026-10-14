@@ -70,6 +70,29 @@ returned as-is.
 
 Tests: `npm test` (Vitest, jsdom; `src/**/*.test.ts`).
 
+## Sign-up modes and sign-in messages
+
+`LoginForm` reads `GET /auth/signup-mode` (public) on mount: **`closed`** hides "Create account";
+**`approval`** (forta-api's default) and **`open`** show it. A registration in approval mode is
+answered `403` with error code **4031** — the account exists but no session is issued — and the
+form ends on an amber "Account created — waiting for approval" panel instead of the success panel
+(no logged-in marker is set). Signing in to a pending account shows the same wording as an amber
+notice, not a red error. **4032** (sign-up closed) switches back to sign-in with an explanation.
+Google returns `google_error=pending_approval` / `signup_closed` for the same cases.
+
+Password sign-in errors are rewritten by `signInErrorMessage` into sentences a person can act on;
+the 401 case stays deliberately vague ("That email and password don't match") so it never reveals
+whether an account exists. The password fields have a Show/Hide toggle.
+
+`/unauthorized` leads with **Request access** → `${NEXT_PUBLIC_FORTA_HOME}/?tab=request` (the
+dashboard's Request access tab), then the dashboard, then "sign in with a different account".
+`NEXT_PUBLIC_FORTA_HOME` (default `https://forta.appleby.cloud`) is also the post-sign-in default.
+
+**Hydration.** `LoginForm` renders "Checking session…" until it has mounted (`useHydrated`). The
+auth store is a module singleton whose loading flag can already be settled on the client's first
+render, while the server always renders the loading state — without the guard React discarded the
+server HTML on every load (a hydration mismatch in the console).
+
 ## OAuth request banner
 
 During an OAuth flow (`?oauth_request_token=…`) the form shows which application is asking,
