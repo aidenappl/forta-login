@@ -444,6 +444,11 @@ export function LoginForm() {
         />
       )}
 
+      {/* The card heading follows the mode, so sign-up doesn't say "Sign in". */}
+      <p className="text-sm text-gray-500 dark:text-neutral-400 text-center">
+        {mode === "signup" ? "Create your account" : "Sign in to continue"}
+      </p>
+
       {isOAuthFlow && <OAuthAlert app={oauthApp} />}
 
       {mode === "signin" ? (
