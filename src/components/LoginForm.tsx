@@ -433,9 +433,6 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="-mt-1 text-center text-sm text-gray-500 dark:text-neutral-400">
-        {mode === "signin" ? "Sign in to continue" : "Create your Forta account"}
-      </p>
       {INHIBIT_REDIRECTS && (
         <DebugAlert
           isLoggedIn={isLoggedIn}
