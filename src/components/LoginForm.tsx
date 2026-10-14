@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import {
   reqLoginLocal,
+  reqRegister,
   reqOAuthComplete,
   reqOAuthRequestInfo,
 } from "@/services/auth.service";
@@ -88,8 +89,14 @@ export function LoginForm() {
   const { isLoggedIn, isLoading: authLoading } = useAuthStatus();
   const dispatch = useAppDispatch();
 
+  // ?signup=1 opens straight on "Create account" (a link you can hand out).
+  const [mode, setMode] = useState<"signin" | "signup">(searchParams.get("signup") === "1" ? "signup" : "signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  // Set after a successful sign-up: the account exists but has no access yet.
+  const [created, setCreated] = useState<UserPublic | null>(null);
   const [error, setError] = useState<string | null>(
     googleError ? (GOOGLE_ERRORS[googleError] ?? GOOGLE_ERRORS.failed) : null,
   );
@@ -189,7 +196,8 @@ export function LoginForm() {
 
   // Auto-redirect logged-in users
   useEffect(() => {
-    if (INHIBIT_REDIRECTS || authLoading || !isLoggedIn || forceLogin) return;
+    // A just-created account stays on its "no access yet" panel.
+    if (INHIBIT_REDIRECTS || authLoading || !isLoggedIn || forceLogin || created) return;
 
     if (isOAuthFlow) {
       const tryAutoOAuth = async () => {
@@ -228,7 +236,7 @@ export function LoginForm() {
       const destination = redirectUri ? trustedOrDefault(redirectUri, "already_signed_in") : DEFAULT_REDIRECT;
       window.location.href = destination;
     }
-  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri, forceLogin]);
+  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri, forceLogin, created]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,11 +263,68 @@ export function LoginForm() {
     }
   };
 
+  // Sign-up creates an account with ZERO grants (forta-api, Oct 2026): it can
+  // sign in, but no app lets it in until an administrator grants access. Say so
+  // instead of redirecting into a 403.
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) {
+      setError("Passwords don't match.");
+      return;
+    }
+    if (password.length < 8 || password.length > 72) {
+      setError("Use a password between 8 and 72 characters.");
+      return;
+    }
+    setLoading(true);
+    const res = await reqRegister({ name: name.trim(), email, password });
+    setLoading(false);
+    if (!res.success) {
+      reportLoginFailed("register", res);
+      setError(res.error_message || "Could not create the account.");
+      return;
+    }
+    setPassword("");
+    setConfirm("");
+    setLoggedInCookie();
+    dispatch(setCredentials({ user: res.data.user }));
+    monitor?.setUser(String(res.data.user.id));
+    setCreated(res.data.user);
+  };
+
+  const switchMode = (next: "signin" | "signup") => {
+    setMode(next);
+    setError(null);
+    setPassword("");
+    setConfirm("");
+  };
+
   if (authLoading) {
     return <InlineLoading message="Checking session…" />;
   }
 
-  if (!INHIBIT_REDIRECTS && (oauthInProgress || (isLoggedIn && !error && !forceLogin))) {
+  if (created) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="text-sm border border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300 rounded-lg p-4">
+          <p className="font-semibold">Account created for {created.email}.</p>
+          <p className="mt-1">
+            It doesn&apos;t have access to any apps yet. An administrator needs to grant it access before you can
+            use them.
+          </p>
+        </div>
+        <a
+          href={DEFAULT_REDIRECT}
+          className="text-center bg-black text-white dark:bg-white dark:text-black rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors"
+        >
+          Continue to Forta
+        </a>
+      </div>
+    );
+  }
+
+  if (!INHIBIT_REDIRECTS && mode === "signin" && (oauthInProgress || (isLoggedIn && !error && !forceLogin))) {
     return <InlineLoading message={statusMessage || "Processing…"} />;
   }
 
@@ -275,20 +340,59 @@ export function LoginForm() {
 
       {isOAuthFlow && <OAuthAlert app={oauthApp} />}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <EmailField value={email} onChange={setEmail} />
-        <PasswordField value={password} onChange={setPassword} />
+      {mode === "signin" ? (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <EmailField value={email} onChange={setEmail} />
+          <PasswordField value={password} onChange={setPassword} />
 
-        {error && <ErrorAlert message={error} />}
+          {error && <ErrorAlert message={error} />}
 
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="cursor-pointer bg-black text-white dark:bg-white dark:text-black rounded-lg py-2.5 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors"
+          >
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleSignup} className="flex flex-col gap-4">
+          <TextField id="name" label="Name" value={name} onChange={setName} autoComplete="name" placeholder="Your name" />
+          <EmailField value={email} onChange={setEmail} />
+          <PasswordField value={password} onChange={setPassword} autoComplete="new-password" />
+          <PasswordField
+            id="confirm-password"
+            label="Confirm password"
+            value={confirm}
+            onChange={setConfirm}
+            autoComplete="new-password"
+          />
+
+          {error && <ErrorAlert message={error} />}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="cursor-pointer bg-black text-white dark:bg-white dark:text-black rounded-lg py-2.5 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors"
+          >
+            {loading ? "Creating account…" : "Create account"}
+          </button>
+          <p className="text-xs text-gray-500 dark:text-neutral-400">
+            New accounts have no access to any app until an administrator grants it.
+          </p>
+        </form>
+      )}
+
+      <p className="text-center text-sm text-gray-600 dark:text-neutral-400">
+        {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
         <button
-          type="submit"
-          disabled={isSubmitting}
-          className="cursor-pointer bg-black text-white dark:bg-white dark:text-black rounded-lg py-2.5 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 dark:hover:bg-neutral-200 transition-colors"
+          type="button"
+          onClick={() => switchMode(mode === "signin" ? "signup" : "signin")}
+          className="cursor-pointer font-medium text-black underline-offset-2 hover:underline dark:text-white"
         >
-          {loading ? "Signing in…" : "Sign in"}
+          {mode === "signin" ? "Create one" : "Sign in"}
         </button>
-      </form>
+      </p>
 
       <Divider />
 
@@ -393,29 +497,69 @@ function EmailField({
   );
 }
 
+function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium text-gray-700 dark:text-neutral-300">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="border border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent transition-shadow"
+        autoComplete={autoComplete}
+        required
+      />
+    </div>
+  );
+}
+
 function PasswordField({
   value,
   onChange,
+  id = "password",
+  label = "Password",
+  autoComplete = "current-password",
 }: {
   value: string;
   onChange: (value: string) => void;
+  id?: string;
+  label?: string;
+  autoComplete?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label
-        htmlFor="password"
+        htmlFor={id}
         className="text-sm font-medium text-gray-700 dark:text-neutral-300"
       >
-        Password
+        {label}
       </label>
       <input
-        id="password"
+        id={id}
         type="password"
         placeholder="••••••••"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="border border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent transition-shadow"
-        autoComplete="current-password"
+        autoComplete={autoComplete}
         required
         minLength={8}
       />

@@ -25,7 +25,7 @@ redirect URL in an event — report a host (`hostOf`) or a boolean instead.
 | `api.request.server_error` / `client_error` / `network_error` | error / warn (info for 401/403 on sign-in and session calls) / error | `attachMonitor` in `monitor.service.ts` (not the SDK's `attachAxiosMonitor`): `method`, `url` (no query), `status_code`, `error`, `error_message`, numeric `error_code`, `attempts`, `duration_ms`, `request_id` (the API's `X-Request-ID` echo, else the one sent), `trace_id`. Never a body |
 | `auth.refresh.failed` | info (401/403) / warn (other 4xx) / error (5xx, no response) | `doRefresh` in `api.service.ts`, once per refresh after its retry, with the refresh call's own `X-Request-ID` |
 | `session.bootstrap.failed` | same mapping (`sessionFailureLevel`) | `StoreProvider` when `reqGetSelf` fails while the `forta-logged-in` marker is `1` |
-| `auth.login.failed` | info (401/403) / warn (other 4xx) / error (5xx, network) | `LoginForm`: `method` (`local`), `status_code`, `error_code`, `request_id` only. Google failures are logged by forta-api, which owns that flow |
+| `auth.login.failed` | info (401/403) / warn (other 4xx) / error (5xx, network) | `LoginForm`: `method` (`local`, or `register` for a failed sign-up), `status_code`, `error_code`, `request_id` only. Google failures are logged by forta-api, which owns that flow |
 | `oauth.complete.failed` | same mapping | `LoginForm`: `status_code`, `error_code`, `request_id`, `auto` (already-signed-in auto-complete vs after sign-in) |
 | `login.redirect_untrusted` | warn | A redirect target failed `isTrustedRedirect` and the default was used: `host`, `source` |
 | `auth.logout.failed` | warn | `/logout` when `reqLogout` fails (local sign-out still happens) |
@@ -83,6 +83,15 @@ sets the logged-in state, which also fires the auto-complete effect; before the 
 completed the flow, the browser followed two redirects, and the app rejected the second as
 `state_expired` ("Sign-in took too long"). Keep the guard on every path that calls
 `reqOAuthComplete`.
+
+## Create account
+
+`LoginForm` has a sign-up mode ("Don't have an account? Create one", or open `/?signup=1`):
+name, email, password and confirmation → `reqRegister` → forta-api `POST /auth/register`
+(public). **New accounts have zero grants** (forta-api, Oct 2026), so after sign-up the form shows
+"Account created… doesn't have access to any apps yet" instead of redirecting or completing an
+OAuth flow into a certain 403; the auto-redirect effect is skipped while `created` is set. An
+administrator grants access in forta-web. Password rules mirror the API (8–72 characters).
 
 ## CI runners
 
