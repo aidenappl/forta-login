@@ -15,7 +15,7 @@ export default function Home() {
           </span>
           <span className="h-4 w-px bg-gray-300 dark:bg-neutral-600" />
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            ApplebyEstate
+            Appleby Cloud
           </span>
         </div>
 

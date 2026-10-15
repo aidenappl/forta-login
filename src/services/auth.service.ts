@@ -73,3 +73,12 @@ export const reqOAuthRequestInfo = (oauthRequestToken: string) =>
         url: "/oauth/request-info",
         params: { oauth_request_token: oauthRequestToken },
     });
+
+export type SignupMode = "open" | "approval" | "closed";
+
+/** Public: whether this Forta lets people create accounts, and how. */
+export const reqSignupMode = () =>
+    fetchApi<{ signup_mode: SignupMode }>({
+        method: "GET",
+        url: "/auth/signup-mode",
+    });

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FortaLogo } from "@/components/FortaLogo";
 
+const FORTA_HOME = process.env.NEXT_PUBLIC_FORTA_HOME || "https://forta.appleby.cloud";
+
 export default function UnauthorizedPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-neutral-950">
@@ -35,15 +37,21 @@ export default function UnauthorizedPage() {
           Unauthorized
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          You don&apos;t have access to the requested application. Your grant
-          may have been revoked or you haven&apos;t been granted access yet.
+          You don&apos;t have access to the requested application. Your access
+          may have been revoked, or it hasn&apos;t been granted yet.
         </p>
 
         <a
-          href="https://forta.appleby.cloud"
-          className="w-full inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors mt-6"
+          href={`${FORTA_HOME}/?tab=request`}
+          className="w-full inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-black hover:bg-gray-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-sm font-medium transition-colors mt-6"
         >
-          Go to Forta Dashboard
+          Request access
+        </a>
+        <a
+          href={FORTA_HOME}
+          className="w-full inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-colors mt-2"
+        >
+          Go to your Forta dashboard
         </a>
         <Link
           href="/"
@@ -53,7 +61,7 @@ export default function UnauthorizedPage() {
         </Link>
 
         <p className="text-xs text-gray-400 dark:text-neutral-500 mt-6">
-          If you believe this is a mistake, contact your administrator.
+          Some apps can be requested from your dashboard; for others, contact an administrator.
         </p>
       </div>
     </main>
