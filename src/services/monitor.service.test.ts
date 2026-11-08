@@ -10,6 +10,7 @@ import {
     reportLoginFailed,
     reportOAuthCompleteFailed,
     reportUntrustedRedirect,
+    networkErrorLevel,
     sessionFailureLevel,
 } from "./monitor.service";
 
@@ -86,6 +87,25 @@ describe("sessionFailureLevel", () => {
         it(`${status} → ${want}`, () => {
             expect(sessionFailureLevel(status)).toBe(want);
         });
+    });
+});
+
+describe("networkErrorLevel", () => {
+    it("is warn by default, so a blip is counted but never an issue", () => {
+        expect(networkErrorLevel("ERR_NETWORK")).toBe("warn");
+        expect(networkErrorLevel("ECONNABORTED")).toBe("warn");
+        expect(networkErrorLevel(undefined)).toBe("warn");
+    });
+    it("is info for a cancelled request", () => {
+        expect(networkErrorLevel("ERR_CANCELED")).toBe("info");
+    });
+    it("is info while the browser is offline", () => {
+        vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+        expect(networkErrorLevel("ERR_NETWORK")).toBe("info");
+    });
+    it("is info while the page is hidden", () => {
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+        expect(networkErrorLevel("ERR_NETWORK")).toBe("info");
     });
 });
 

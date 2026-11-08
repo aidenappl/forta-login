@@ -94,7 +94,7 @@ describe("fetchApi", () => {
             expect(events).toHaveLength(1);
             const [name, level, opts] = events[0];
             expect(name).toBe("api.request.network_error");
-            expect(level).toBe("error");
+            expect(level).toBe("warn");
             expect(opts?.requestId).toBe(sent[0].id);
             expect(opts?.data).toMatchObject({ method: "POST", url: "/oauth/complete", error_code: "ECONNABORTED", attempts: 1 });
             expect(JSON.stringify(opts)).not.toContain("secret");
