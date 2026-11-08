@@ -257,8 +257,10 @@ export function LoginForm() {
 
   // Auto-redirect logged-in users
   useEffect(() => {
-    // A just-created account stays on its "no access yet" panel.
-    if (INHIBIT_REDIRECTS || authLoading || !isLoggedIn || forceLogin || created) return;
+    // A just-created account stays on its "no access yet" panel. A failed
+    // Google attempt stays on the form: its return_to has no prompt=login, so
+    // completing here would answer a re-authentication with the old session.
+    if (INHIBIT_REDIRECTS || authLoading || !isLoggedIn || forceLogin || googleError || created) return;
 
     if (isOAuthFlow) {
       const tryAutoOAuth = async () => {
@@ -297,7 +299,7 @@ export function LoginForm() {
       const destination = redirectUri ? trustedOrDefault(redirectUri, "already_signed_in") : DEFAULT_REDIRECT;
       window.location.href = destination;
     }
-  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri, forceLogin, created]);
+  }, [authLoading, isLoggedIn, isOAuthFlow, oauthRequestToken, redirectUri, forceLogin, googleError, created]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

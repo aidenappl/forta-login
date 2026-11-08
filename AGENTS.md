@@ -54,7 +54,11 @@ authorization like any other sign-in. Failures come back as `?google_error=<code
 
 **`prompt=login`.** forta-api adds `&prompt=login` to the login URL when a relying party asked
 for a fresh sign-in (OIDC `prompt=login` / `select_account`). `LoginForm` then does **not**
-auto-complete for an already signed-in visitor; it shows the form. Every other authorize request
+auto-complete for an already signed-in visitor; it shows the form. Signing in on that form (password
+or Google) completes the flow. `GoogleButton` drops `prompt` from its `return_to`, because
+finishing Google *is* the fresh sign-in; with it kept, the page came back signed in, showed the
+form again and never completed. A return carrying `google_error` never auto-completes, so a
+failed Google attempt can't answer a re-authentication with the old session. Every other authorize request
 from a signed-in browser is answered by forta-api directly and never reaches this page.
 
 **Request ids.** A request interceptor in `api.service.ts` sends `X-Request-ID` (a UUID) on every

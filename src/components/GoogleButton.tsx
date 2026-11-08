@@ -14,7 +14,10 @@ import { monitor } from "@/services/monitor.service";
  *
  * return_to is this page — still carrying any oauth_request_token — so after
  * Google, the page loads signed in and completes the relying party's
- * authorization like any other sign-in.
+ * authorization like any other sign-in. It drops prompt=login: finishing
+ * Google IS the fresh sign-in the relying party asked for, and keeping it made
+ * the page treat the returning visitor as "already signed in, show the form"
+ * and never complete (a Keyring reveal stalled there).
  */
 export function GoogleButton({ disabled }: { disabled?: boolean }) {
   const [redirecting, setRedirecting] = useState(false);
@@ -23,7 +26,7 @@ export function GoogleButton({ disabled }: { disabled?: boolean }) {
     setRedirecting(true);
     monitor?.emit("auth.login.google_started", "info", {});
     const url = new URL("/auth/google/start", BASE_API_URL);
-    url.searchParams.set("return_to", stripGoogleError(window.location.href));
+    url.searchParams.set("return_to", returnTo(window.location.href));
     window.location.href = url.toString();
   };
 
@@ -41,10 +44,14 @@ export function GoogleButton({ disabled }: { disabled?: boolean }) {
   );
 }
 
-/** Drops a previous attempt's error so it does not survive into the next one. */
-function stripGoogleError(href: string): string {
+/**
+ * This page as Google's return address: without a previous attempt's error, so
+ * it does not survive into the next one, and without prompt=login (see above).
+ */
+function returnTo(href: string): string {
   const u = new URL(href);
   u.searchParams.delete("google_error");
+  u.searchParams.delete("prompt");
   return u.toString();
 }
 
