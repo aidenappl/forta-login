@@ -113,6 +113,23 @@ export const sessionFailureLevel = (status: number | undefined): LogLevel => {
 };
 
 /**
+ * The level of a request that got no response. These are mostly the client's
+ * own network: a laptop waking up, a tab closing mid-request, a captive portal
+ * or a blocker. Monitor turns error events into issues, so they go out at warn
+ * (still counted and searchable) and at info when the browser itself says why:
+ * it is offline, the page is hidden or the request was cancelled. A real API or
+ * proxy outage shows up as errors on the server side (forta-api, proxy). Was
+ * error: one issue collected five unrelated page-load blips over four weeks,
+ * none of which reached the proxy.
+ */
+export const networkErrorLevel = (code: string | undefined): LogLevel => {
+    if (code === "ERR_CANCELED") return "info";
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return "info";
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return "info";
+    return "warn";
+};
+
+/**
  * Reports every failed API call: method, path (never the query string),
  * status, the API's error, error_message and numeric error_code, the attempt
  * and the X-Request-ID — never a body.
@@ -169,7 +186,7 @@ export const attachMonitor = (instance: AxiosInstance): void => {
             // No response: timeout, DNS failure, CORS refusal, abort.
             const config: InternalAxiosRequestConfig | undefined = error.config;
             const meta = config?.meta;
-            m.error("api.request.network_error", {
+            m.emit("api.request.network_error", networkErrorLevel(error.code), {
                 requestId: meta?.requestId,
                 data: {
                     method: (config?.method ?? "").toUpperCase(),
